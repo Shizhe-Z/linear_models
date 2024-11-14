@@ -55,7 +55,7 @@ lm(y ~ x, data = sim_df_nonconst) |>
 
 ```{r}
 boot_sample = function(df) {
-  sample_frac(df, replace = TRUE)
+  sample_frac(df, replace = TRUE)  
 }
 ```
 
@@ -72,10 +72,20 @@ boot_sample(sim_df_nonconst) |>
 boot_straps = 
   tibble(strap_number = 1:1000) |> 
   mutate(
-    strap_sample = map(strap_number, \(i) boot_sample(df = sim_df_nonconst))
+    strap_sample = map(strap_number, \(i) boot_sample(df = sim_df_nonconst)),
+    models = map(strap_sample, \(df) lm(y ~ x, data = df)),
+    results = map(models, broom::tidy)
   )
 
-boot_straps
+bootstrap_results =
+  boot_straps |> 
+  select(strap_number, results) |> 
+  unnest(results) |> 
+  group_by(term) |> 
+  summarise(
+    boot_se = sd(estimate)
+  ) |> 
+  knitr::kable(digits = 3)
 ```
 
 ```{r}
@@ -130,10 +140,12 @@ boot_straps |>
 
 ## `bootstrap`
 
+using modelr
+
 ```{r}
 boot_straps = 
   sim_df_nonconst |> 
-  modelr::bootstrap(n = 1000)
+  modelr::bootstrap(n = 1000) 
 
 boot_straps |> pull(strap) |> nth(1)
 boot_straps |> pull(strap) |> nth(1) |> as_tibble()
@@ -163,6 +175,7 @@ sim_df_const |>
   summarize(boot_se = sd(estimate))
 ```
 
+## Airbnb
 
 ```{r}
 data("nyc_airbnb")
@@ -173,10 +186,11 @@ nyc_airbnb =
   rename(
     borough = neighbourhood_group,
     neighborhood = neighbourhood) |> 
-  filter(borough != "Staten Island") |> 
+  filter(borough == "Staten Island") |> 
   drop_na(price, stars) |> 
   select(price, stars, borough, neighborhood, room_type)
 ```
+
 
 ```{r}
 nyc_airbnb |> 
@@ -184,8 +198,9 @@ nyc_airbnb |>
   geom_point() 
 ```
 
+manhattan data -> plot, regression
 ```{r}
-nyc_airbnb |> 
+manhattan_df |> 
   filter(borough == "Manhattan") |> 
   modelr::bootstrap(n = 1000) |> 
   mutate(
@@ -196,5 +211,8 @@ nyc_airbnb |>
   filter(term == "stars") |> 
   ggplot(aes(x = estimate)) + geom_density()
 ```
+
+
+
 
 
